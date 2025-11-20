@@ -1,10 +1,21 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 #include <stdint.h>
+#include "queue.h"
 
 #define MAX_PROCESSES 5
 #define STACK_SIZE 256
 
+/* --- CRITICAL SECTION MACROS --- */
+// Lệnh Assembly để tắt ngắt (Set PRIMASK = 1)
+#define OS_ENTER_CRITICAL()  __asm volatile ("cpsid i" : : : "memory")
+// Lệnh Assembly để bật lại ngắt (Set PRIMASK = 0)
+#define OS_EXIT_CRITICAL()   __asm volatile ("cpsie i" : : : "memory")
+
+extern queue_t ready_queue;
+extern queue_t job_queue;
+extern queue_t device_queue;
+extern struct PCB* current_pcb;
 extern volatile uint32_t tick_count; // Biến đếm tick hệ thống
 
 typedef enum {

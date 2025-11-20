@@ -3,12 +3,12 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "process.h"
 
+struct PCB;
 #define MAX_QUEUE_LEN 10
 
 typedef struct {
-    PCB_t* items[MAX_QUEUE_LEN];
+    struct PCB* items[MAX_QUEUE_LEN];
     int front;
     int rear;
     int count;
@@ -18,7 +18,7 @@ typedef struct {
 void queue_init(queue_t *q);
 int queue_is_empty(queue_t *q);
 int queue_is_full(queue_t *q);
-void queue_enqueue(queue_t *q, PCB_t *pcb);
-PCB_t* queue_dequeue(queue_t *q);
+void queue_enqueue(queue_t *q, struct PCB *pcb);
+struct PCB* queue_dequeue(queue_t *q);
 
 #endif

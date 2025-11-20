@@ -14,9 +14,9 @@ PCB_t *next_pcb = NULL;
 extern void start_first_task(uint32_t *first_sp); 
 //extern void switch_context(uint32_t **old_sp_ptr, uint32_t *new_sp);
 
-static queue_t job_queue;
-static queue_t ready_queue;
-static queue_t device_queue;
+queue_t job_queue;
+queue_t ready_queue;
+queue_t device_queue;
 
 static uint32_t stacks[MAX_PROCESSES][STACK_SIZE];
 static PCB_t pcb_table[MAX_PROCESSES];
@@ -80,7 +80,9 @@ void process_create(void (*func)(void), uint32_t pid, uint8_t priority)
     p->total_cpu_runtime = 0;
     p->wake_up_tick = 0;
 
+    OS_ENTER_CRITICAL();
     queue_enqueue(&job_queue, p);
+    OS_EXIT_CRITICAL();
 
     uart_print("Created process ");
     uart_print_dec(pid);
@@ -97,6 +99,7 @@ void process_create(void (*func)(void), uint32_t pid, uint8_t priority)
 // }
 
 void process_admit_jobs(void) {
+    OS_ENTER_CRITICAL();
     while (!queue_is_empty(&job_queue)) {
         PCB_t *p = queue_dequeue(&job_queue);
         if (!p) break;
@@ -106,11 +109,16 @@ void process_admit_jobs(void) {
         uart_print_dec(p->pid);
         uart_print(" -> READY\r\n");
     }
+    OS_EXIT_CRITICAL();
 }
 
 void process_schedule(void) {
+    OS_ENTER_CRITICAL();
+
     // 1. Kiểm tra nếu không có process READY
-    if (queue_is_empty(&ready_queue)) return;
+    if (queue_is_empty(&ready_queue)) {
+    OS_EXIT_CRITICAL();
+    return;}
 
     // 2. Lấy process tiếp theo từ hàng đợi READY
     PCB_t *pnext = queue_dequeue(&ready_queue);
@@ -128,6 +136,8 @@ void process_schedule(void) {
     }
 
     pnext->state = PROC_RUNNING;
+    OS_EXIT_CRITICAL();
+
     uart_print("Switching to process ");
     uart_print_dec(pnext->pid);
     uart_print(" (");
@@ -159,7 +169,7 @@ void os_delay(uint32_t ticks) {
     // 3. Nhường CPU ngay lập tức!
     // Không chờ hết time-slice, ta kích hoạt PendSV để đổi task ngay
     // SCB_ICSR |= PENDSVSET_BIT; (Bạn đã define macro này rồi)
-    *(volatile uint32_t*)0xE000ED04 |= (1UL << 28); 
+    //*(volatile uint32_t*)0xE000ED04 |= (1UL << 28); 
 }
 
 void process_timer_tick(void) {
