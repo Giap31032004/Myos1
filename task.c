@@ -27,20 +27,21 @@ void task_sensor_update(void) {
    TASK 2: DISPLAY (Cập nhật 5 giây/lần - RẤT CHẬM)
    ------------------------------------------------ */
 void task_display(void) {
-    while (1) {
-        // SỬA 1: Tăng delay lên 50 (5 giây) hoặc 100 (10 giây)
-        // Để nó không spam màn hình nữa
-        os_delay(50);
+    int last_temp = -999; // Lưu nhiệt độ cũ
 
-        // SỬA 2: BỎ lệnh xóa màn hình ("\033[2J") để không bị mất log Alarm
-        // Chỉ in phân cách để dễ nhìn
-        uart_print("\r\n"); 
-        uart_print("----------------------\r\n");
-        uart_print("| SYSTEM MONITOR     |\r\n");
-        uart_print("| Temp: "); 
-        uart_print_dec(current_temperature); 
-        uart_print(" C         |\r\n");
-        uart_print("----------------------\r\n");
+    while (1) {
+        // Chỉ in lại nếu nhiệt độ đã thay đổi
+        if (current_temperature != last_temp) {
+            uart_print("----------------------\r\n");
+            uart_print("| Temp: "); 
+            uart_print_dec(current_temperature); 
+            uart_print(" C         |\r\n");
+            uart_print("----------------------\r\n");
+            
+            last_temp = current_temperature; // Cập nhật
+        }
+
+        os_delay(10); // Kiểm tra mỗi 1 giây
     }
 }
 
