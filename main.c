@@ -5,7 +5,7 @@
 
 /* --- CẤU HÌNH HỆ THỐNG --- */
 #define SYSTEM_CLOCK      80000000
-#define SYSTICK_RATE      8000000   // 10 tick/giây (đảo task nhanh hơn để thấy phản ứng)
+#define SYSTICK_RATE      2000000   // 10 tick/giây (đảo task nhanh hơn để thấy phản ứng)
 
 void delay(volatile unsigned int count) {
     while (count--) {
