@@ -6,6 +6,8 @@
 #define SCB_ICSR (*(volatile uint32_t*)0xE000ED04)
 #define PENDSVSET_BIT (1UL << 28)
 
+volatile uint32_t tick_count = 0; // Biến đếm tick hệ thống
+
 PCB_t *current_pcb = NULL;   
 PCB_t *next_pcb = NULL;      
 
@@ -44,7 +46,7 @@ void process_init(void) {
     next_pcb = NULL;
 }
 
-void process_create(void (*func)(void), uint32_t pid) 
+void process_create(void (*func)(void), uint32_t pid, uint8_t priority) 
 {
     if (pid >= MAX_PROCESSES) return;
 
@@ -71,6 +73,13 @@ void process_create(void (*func)(void), uint32_t pid)
     p->stack_ptr = sp;
 
     p->state = PROC_NEW;
+
+    p->dynamic_priority = priority;
+    p->static_priority = priority;
+    p->time_slice = 5;
+    p->total_cpu_runtime = 0;
+    p->wake_up_tick = 0;
+
     queue_enqueue(&job_queue, p);
 
     uart_print("Created process ");
@@ -100,14 +109,22 @@ void process_admit_jobs(void) {
 }
 
 void process_schedule(void) {
+    // 1. Kiểm tra nếu không có process READY
     if (queue_is_empty(&ready_queue)) return;
 
+    // 2. Lấy process tiếp theo từ hàng đợi READY
     PCB_t *pnext = queue_dequeue(&ready_queue);
     if (!pnext) return;
 
-    if (current_pcb != NULL && current_pcb->state == PROC_RUNNING) {
-        current_pcb->state = PROC_READY;
-        queue_enqueue(&ready_queue, current_pcb);
+    // 3. Xử lý task hiện tại
+    if (current_pcb != NULL) {
+        // SỬA 5: Logic quan trọng cho Blocking!
+        // Chỉ enqueue lại nếu nó vẫn đang RUNNING (tức là hết giờ time-slice).
+        // Nếu nó gọi os_delay, state đã là BLOCKED -> KHÔNG enqueue lại.
+        if (current_pcb->state == PROC_RUNNING) {
+            current_pcb->state = PROC_READY;
+            queue_enqueue(&ready_queue, current_pcb);
+        }
     }
 
     pnext->state = PROC_RUNNING;
@@ -125,5 +142,46 @@ void process_schedule(void) {
     } else {
         next_pcb = pnext;
         SCB_ICSR |= PENDSVSET_BIT;
+    }
+}
+
+/* */
+void os_delay(uint32_t ticks) {
+    // 1. Tính thời điểm báo thức
+    // Nếu ticks = 100, hiện tại là 500 -> wake_up_tick = 600
+    current_pcb->wake_up_tick = tick_count + ticks;
+
+    // 2. Chuyển trạng thái sang BLOCKED
+    current_pcb->state = PROC_BLOCKED;
+
+    // gọi scheduler để tìm task mới 
+    process_schedule();
+    // 3. Nhường CPU ngay lập tức!
+    // Không chờ hết time-slice, ta kích hoạt PendSV để đổi task ngay
+    // SCB_ICSR |= PENDSVSET_BIT; (Bạn đã define macro này rồi)
+    *(volatile uint32_t*)0xE000ED04 |= (1UL << 28); 
+}
+
+void process_timer_tick(void) {
+    tick_count++; // Tăng giờ hệ thống
+
+    /* Quét mảng để tìm Task ngủ dậy */
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        PCB_t *p = &pcb_table[i];
+        
+        // Chỉ kiểm tra task nào đang BLOCKED và có PID hợp lệ (đã tạo)
+        if (p->state == PROC_BLOCKED) {
+            if (p->wake_up_tick <= tick_count) {
+                // Dậy thôi!
+                p->state = PROC_READY;
+                p->wake_up_tick = 0; // Reset
+                
+                // Đưa lại vào hàng đợi READY
+                queue_enqueue(&ready_queue, p);
+                
+                // (Optional) Debug log
+                // uart_print("Task woken up: "); uart_print_dec(p->pid); uart_print("\r\n");
+            }
+        }
     }
 }

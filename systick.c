@@ -17,6 +17,9 @@ void systick_init(uint32_t ticks)
 
 void SysTick_Handler(void) 
 {
+    // cập nhật giờ đánh thức
+    process_timer_tick();
+
     process_schedule();
     ICSR |= PENDSVSET; // set cờ PendSV
 }

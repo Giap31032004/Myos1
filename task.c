@@ -1,0 +1,76 @@
+#include "task.h"
+#include <stdint.h>
+
+/* Biến toàn cục */
+volatile int current_temperature = 25; 
+volatile int system_uptime = 0;
+
+/* ------------------------------------------------
+   TASK 1: SENSOR (Cập nhật 1 giây/lần)
+   ------------------------------------------------ */
+void task_sensor_update(void) {
+    int direction = 1; 
+    while (1) {
+        os_delay(10); // 1 giây (với 10 tick/s)
+
+        if (direction == 1) {
+            current_temperature += 5;
+            if (current_temperature >= 55) direction = -1; // Tăng max lên 55 cho dễ test
+        } else {
+            current_temperature -= 5;
+            if (current_temperature <= 20) direction = 1;
+        }
+    }
+}
+
+/* ------------------------------------------------
+   TASK 2: DISPLAY (Cập nhật 5 giây/lần - RẤT CHẬM)
+   ------------------------------------------------ */
+void task_display(void) {
+    while (1) {
+        // SỬA 1: Tăng delay lên 50 (5 giây) hoặc 100 (10 giây)
+        // Để nó không spam màn hình nữa
+        os_delay(50);
+
+        // SỬA 2: BỎ lệnh xóa màn hình ("\033[2J") để không bị mất log Alarm
+        // Chỉ in phân cách để dễ nhìn
+        uart_print("\r\n"); 
+        uart_print("----------------------\r\n");
+        uart_print("| SYSTEM MONITOR     |\r\n");
+        uart_print("| Temp: "); 
+        uart_print_dec(current_temperature); 
+        uart_print(" C         |\r\n");
+        uart_print("----------------------\r\n");
+    }
+}
+
+/* ------------------------------------------------
+   TASK 3: ALARM (Kiểm tra nhanh nhưng báo thông minh)
+   ------------------------------------------------ */
+void task_alarm(void) {
+    int alarm_active = 0; // Cờ trạng thái để tránh spam
+
+    while (1) {
+        // Kiểm tra 0.5 giây/lần
+        os_delay(5);
+
+        if (current_temperature > 40) {
+            // Chỉ in cảnh báo MỘT LẦN khi mới phát hiện
+            if (alarm_active == 0) {
+                uart_print("\r\n\r\n"); // Xuống dòng tạo khoảng cách
+                uart_print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n");
+                uart_print("!!! [ALARM] WARNING: OVERHEAT !!!\r\n");
+                uart_print("!!! [ALARM] COOLING FAN ON    !!!\r\n");
+                uart_print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n");
+                alarm_active = 1; // Đánh dấu đã báo rồi -> Không in nữa
+            }
+        } 
+        else {
+            // Khi nhiệt độ giảm xuống an toàn
+            if (alarm_active == 1) {
+                uart_print("\r\n[ALARM] Temperature Normal. Fan OFF.\r\n");
+                alarm_active = 0; // Reset cờ
+            }
+        }
+    }
+}

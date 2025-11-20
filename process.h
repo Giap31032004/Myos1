@@ -5,6 +5,8 @@
 #define MAX_PROCESSES 5
 #define STACK_SIZE 256
 
+extern volatile uint32_t tick_count; // Biến đếm tick hệ thống
+
 typedef enum {
     PROC_NEW,
     PROC_READY,
@@ -27,8 +29,8 @@ typedef struct PCB {
                                // Thời điểm (tick hệ thống) mà task sẽ thức dậy
 
     /* --- PHẦN LẬP LỊCH (SCHEDULING) --- */
-    uint8_t base_priority;     // Độ ưu tiên gốc (Cài đặt ban đầu)
-    uint8_t current_priority;  // Độ ưu tiên động (Dùng để lập lịch thực tế)
+    uint8_t static_priority;     // Độ ưu tiên gốc (Cài đặt ban đầu)
+    uint8_t dynamic_priority;  // Độ ưu tiên động (Dùng để lập lịch thực tế)
     
     uint8_t time_slice;        // Số tick còn lại trong lượt chạy hiện tại (Round-robin quota)
     
@@ -38,10 +40,12 @@ typedef struct PCB {
 } PCB_t;
 
 void process_init(void);
-void process_create(void (*func)(void), uint32_t pid);
+void process_create(void (*func)(void), uint32_t pid, uint8_t priority);
 void process_admit_jobs(void);
 void process_schedule(void);
 void process_set_state(uint32_t pid, process_state_t new_state);
 const char* process_state_str(process_state_t state);
+void os_delay(uint32_t tick);
+void process_timer_tick(void);
 
 #endif
