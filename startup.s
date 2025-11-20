@@ -64,3 +64,4 @@ Reset_Handler:
 
 Default_Handler:
     b .            /* Vòng lặp vô hạn nếu gặp lỗi/ngắt chưa định nghĩa */
+    

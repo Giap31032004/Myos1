@@ -2,10 +2,12 @@
 #include "systick.h"
 #include "process.h"
 #include "task.h"
-
+#include "sync.h" 
 /* --- CẤU HÌNH HỆ THỐNG --- */
 #define SYSTEM_CLOCK      80000000
 #define SYSTICK_RATE      2000000   // 10 tick/giây (đảo task nhanh hơn để thấy phản ứng)
+
+os_mutex_t app_mutex; // chiếc khóa chung cho cả hệ thống
 
 void delay(volatile unsigned int count) {
     while (count--) {
@@ -22,6 +24,7 @@ void main(void) {
     delay(5000000); // Chờ khởi động
 
     process_init();
+    mutex_init(&app_mutex);
 
     /* Tạo các task với chức năng cụ thể */
     process_create(task_sensor_update, 0, 4); // PID 0

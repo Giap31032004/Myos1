@@ -5,6 +5,7 @@
 /* Biến toàn cục */
 volatile int current_temperature = 25; 
 volatile int system_uptime = 0;
+extern os_mutex_t app_mutex;
 
 /* ------------------------------------------------
    TASK 1: SENSOR (Cập nhật 1 giây/lần)
@@ -14,6 +15,7 @@ void task_sensor_update(void) {
     while (1) {
         os_delay(10); // 1 giây (với 10 tick/s)
 
+        mutex_lock(&app_mutex);
         if (direction == 1) {
             current_temperature += 5;
             if (current_temperature >= 55) direction = -1; // Tăng max lên 55 cho dễ test
@@ -21,6 +23,7 @@ void task_sensor_update(void) {
             current_temperature -= 5;
             if (current_temperature <= 20) direction = 1;
         }
+        mutex_unlock(&app_mutex);
     }
 }
 
@@ -31,6 +34,7 @@ void task_display(void) {
     int last_temp = -999; // Lưu nhiệt độ cũ
 
     while (1) {
+        mutex_lock(&app_mutex);
         // Chỉ in lại nếu nhiệt độ đã thay đổi
         if (current_temperature != last_temp) {
             uart_print("----------------------\r\n");
@@ -41,7 +45,7 @@ void task_display(void) {
             
             last_temp = current_temperature; // Cập nhật
         }
-
+        mutex_unlock(&app_mutex);
         os_delay(10); // Kiểm tra mỗi 1 giây
     }
 }
@@ -55,7 +59,7 @@ void task_alarm(void) {
     while (1) {
         // Kiểm tra 0.5 giây/lần
         os_delay(5);
-
+        mutex_lock(&app_mutex);
         if (current_temperature > 40) {
             // Chỉ in cảnh báo MỘT LẦN khi mới phát hiện
             if (alarm_active == 0) {
@@ -74,5 +78,6 @@ void task_alarm(void) {
                 alarm_active = 0; // Reset cờ
             }
         }
+        mutex_unlock(&app_mutex);
     }
 }

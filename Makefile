@@ -7,7 +7,7 @@ CFLAGS = -mcpu=cortex-m3 -mthumb -O2 -ffreestanding -nostdlib -g -Wall
 LDFLAGS = -T linker.ld -nostdlib
 
 # QUAN TRỌNG: Đã thêm context_switch.s vào danh sách biên dịch
-SRC = main.c startup.s context_switch.s uart.c systick.c process.c queue.c task.c 
+SRC = main.c startup.s context_switch.s uart.c systick.c process.c queue.c task.c sync.c
 
 all: $(TARGET).bin
 

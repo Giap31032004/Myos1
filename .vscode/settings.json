@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "systick.h": "c",
-        "uart.h": "c"
+        "uart.h": "c",
+        "stdint.h": "c"
     }
 }

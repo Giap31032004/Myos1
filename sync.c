@@ -3,6 +3,12 @@
 /* ============================================================
    HÀM NỘI BỘ (STATIC) - Dùng chung cho cả 2 để giảm lặp code
    ============================================================ */
+// hàm khởi tạo sem
+void sem_init(os_sem_t* sem, int32_t initial_count){
+    sem->count = initial_count;
+    queue_init(&sem->wait_list);
+}
+
 // Hàm đưa task hiện tại vào danh sách chờ và gọi Scheduler
 static void block_current_task(queue_t *wait_queue) {
     // Logic này giống hệt nhau ở cả Mutex và Semaphore!
@@ -56,6 +62,12 @@ void sem_signal(os_sem_t *sem) {
 /* ============================================================
    PHẦN MUTEX (Logic hơi khác chút xíu về Owner)
    ============================================================ */
+void mutex_init(os_mutex_t* mtx){
+    mtx->locked = 0; //ban đầu không khóa
+    mtx->owner = NULL; // chưa ai sở hữu 
+    queue_init(&mtx->wait_list);
+}
+
 void mutex_lock(os_mutex_t *mtx) {
     while (1) {
         OS_ENTER_CRITICAL();

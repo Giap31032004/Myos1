@@ -82,3 +82,4 @@ start_first_task:
     /* Nhảy vào Task */
     LDR     lr, =0xFFFFFFFD         
     BX      lr
+    

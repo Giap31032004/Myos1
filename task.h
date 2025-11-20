@@ -2,6 +2,7 @@
 #define TASK_H
 
 #include "process.h" 
+#include "sync.h"
 #include <stdint.h>
 
 /* Biến toàn cục "Giả lập phần cứng" (Shared Resource) */
