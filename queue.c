@@ -16,7 +16,6 @@ int queue_is_full(queue_t *q) {
 }
 
 void queue_enqueue(queue_t *q, struct PCB *pcb) {
-    OS_ENTER_CRITICAL();
     if (queue_is_full(q)) {
         OS_EXIT_CRITICAL();
         return;
@@ -24,7 +23,6 @@ void queue_enqueue(queue_t *q, struct PCB *pcb) {
     q->rear = (q->rear + 1) % MAX_QUEUE_LEN;
     q->items[q->rear] = pcb;
     q->count++;
-    OS_EXIT_CRITICAL();
 }
 
 struct PCB* queue_dequeue(queue_t *q) {
