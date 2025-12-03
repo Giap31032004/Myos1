@@ -38,6 +38,7 @@ const char* process_state_str(process_state_t state) {
 void process_init(void) {
     uart_print("Process system initialized.\r\n");
 
+    os_mem_init(); // Khởi tạo bộ nhớ động cho PCB và stacks
     for(int i = 0; i < MAX_PROCESSES; i++) {
         queue_init(&ready_queue[i]);
     }
@@ -61,7 +62,15 @@ void process_create(void (*func)(void), uint32_t pid, uint8_t priority)
     p->entry = func;
     p->state = PROC_READY;
 
-    uint32_t *sp = &stacks[pid][STACK_SIZE];
+    //uint32_t *sp = &stacks[pid][STACK_SIZE];
+    uint32_t *stack_base = (uint32_t*)os_malloc(STACK_SIZE * 4);
+    if(stack_base == NULL) {
+        uart_print("Error: Unable to allocate stack for process ");
+        uart_print_dec(pid);
+        uart_print("\r\n");
+        return;
+    }
+    uint32_t *sp = stack_base + STACK_SIZE;
 
     *(--sp) = 0x01000000UL;        /* xPSR: Thumb bit set */
     *(--sp) = (uint32_t)func;      /* PC -> entry function */
@@ -185,7 +194,7 @@ void os_delay(uint32_t ticks) {
 
 void process_timer_tick(void) {
     tick_count++; // Tăng giờ hệ thống
-
+    int need_schedule = 0;
     /* Quét mảng để tìm Task ngủ dậy */
     for (int i = 0; i < MAX_PROCESSES; i++) {
         PCB_t *p = &pcb_table[i];
@@ -200,9 +209,13 @@ void process_timer_tick(void) {
                 // Đưa lại vào hàng đợi READY
                 // queue_enqueue(&ready_queue, p);
                 add_task_to_ready_queue(p);
+                need_schedule = 1;
                 // (Optional) Debug log
                 // uart_print("Task woken up: "); uart_print_dec(p->pid); uart_print("\r\n");
             }
+        }
+        if(need_schedule) {
+            SCB_ICSR |= PENDSVSET_BIT;
         }
     }
 }
