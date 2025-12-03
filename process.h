@@ -3,20 +3,21 @@
 #include <stdint.h>
 #include "queue.h"
 
-#define MAX_PROCESSES 5
-#define STACK_SIZE 256
+#define MAX_PROCESSES 10 // Số lượng tiến trình tối đa
+#define MAX_PRIORITY 8 // số hàng đợi tối đa
+#define STACK_SIZE 256 // Kích thước stack cho mỗi tiến trình
 
-/* --- CRITICAL SECTION MACROS --- */
 // Lệnh Assembly để tắt ngắt (Set PRIMASK = 1)
 #define OS_ENTER_CRITICAL()  __asm volatile ("cpsid i" : : : "memory")
 // Lệnh Assembly để bật lại ngắt (Set PRIMASK = 0)
 #define OS_EXIT_CRITICAL()   __asm volatile ("cpsie i" : : : "memory")
 
-extern queue_t ready_queue;
-extern queue_t job_queue;
-extern queue_t device_queue;
-extern struct PCB* current_pcb;
+extern queue_t ready_queue[MAX_PRIORITY]; // mảng hàng đợi
+extern queue_t job_queue; // Hàng đợi công việc (nếu cần, có thể bỏ qua nếu không dùng)
+extern queue_t device_queue; // Hàng đợi công việc và thiết bị (nếu cần)
+extern struct PCB* current_pcb; // PCB hiện tại
 extern volatile uint32_t tick_count; // Biến đếm tick hệ thống
+extern uint32_t top_ready_priority_bitmap; // ví dụ = 3 => 0000 1000
 
 typedef enum {
     PROC_NEW,
@@ -48,6 +49,8 @@ typedef struct PCB {
     /* --- PHẦN THỐNG KÊ (Tùy chọn) --- */
     uint32_t total_cpu_runtime; // Tổng số tick task này đã chiếm dụng từ lúc khởi động
                                 // Dùng uint32_t để không bị tràn sớm
+    uint8_t id_cpu;           // CPU chạy task này (dành cho hệ thống đa lõi)
+    
 } PCB_t;
 
 void process_init(void);
@@ -58,5 +61,7 @@ void process_set_state(uint32_t pid, process_state_t new_state);
 const char* process_state_str(process_state_t state);
 void os_delay(uint32_t tick);
 void process_timer_tick(void);
+void add_task_to_ready_queue(PCB_t *p);
+PCB_t* get_highest_priority_ready_task(void);
 
 #endif

@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 struct PCB;
-#define MAX_QUEUE_LEN 10
+#define MAX_QUEUE_LEN 10 
 
 typedef struct {
     struct PCB* items[MAX_QUEUE_LEN];

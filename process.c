@@ -7,15 +7,16 @@
 #define PENDSVSET_BIT (1UL << 28)
 
 volatile uint32_t tick_count = 0; // Biến đếm tick hệ thống
-
-PCB_t *current_pcb = NULL;   
-PCB_t *next_pcb = NULL;      
+PCB_t *current_pcb = NULL;   // PCB hiện tại
+PCB_t *next_pcb = NULL;      // PCB tiếp theo sẽ chạy
 
 extern void start_first_task(uint32_t *first_sp); 
-//extern void switch_context(uint32_t **old_sp_ptr, uint32_t *new_sp);
+uint32_t top_ready_priority_bitmap = 0; // Biến toàn cục để lưu bitmap ưu tiên cao nhất
+
 
 queue_t job_queue;
-queue_t ready_queue;
+
+queue_t ready_queue[MAX_PRIORITY];
 queue_t device_queue;
 
 static uint32_t stacks[MAX_PROCESSES][STACK_SIZE];
@@ -37,9 +38,14 @@ const char* process_state_str(process_state_t state) {
 void process_init(void) {
     uart_print("Process system initialized.\r\n");
 
-    queue_init(&job_queue);
-    queue_init(&ready_queue);
-    queue_init(&device_queue);
+    for(int i = 0; i < MAX_PROCESSES; i++) {
+        queue_init(&ready_queue[i]);
+    }
+    
+    top_ready_priority_bitmap = 0;
+    // queue_init(&job_queue);
+    // queue_init(&ready_queue);
+    // queue_init(&device_queue);
 
     total_processes = 0;
     current_pcb = NULL;
@@ -53,7 +59,7 @@ void process_create(void (*func)(void), uint32_t pid, uint8_t priority)
     PCB_t *p = &pcb_table[pid];
     p->pid = pid;
     p->entry = func;
-    p->state = PROC_NEW;
+    p->state = PROC_READY;
 
     uint32_t *sp = &stacks[pid][STACK_SIZE];
 
@@ -81,7 +87,8 @@ void process_create(void (*func)(void), uint32_t pid, uint8_t priority)
     p->wake_up_tick = 0;
 
     OS_ENTER_CRITICAL();
-    queue_enqueue(&job_queue, p);
+    // queue_enqueue(&job_queue, p);
+    add_task_to_ready_queue(p); 
     OS_EXIT_CRITICAL();
 
     uart_print("Created process ");
@@ -91,6 +98,9 @@ void process_create(void (*func)(void), uint32_t pid, uint8_t priority)
     uart_print("\r\n");
 
     total_processes++;
+    if(current_pcb && p->dynamic_priority > current_pcb->dynamic_priority) {
+        SCB_ICSR |= PENDSVSET_BIT;
+    }
 }
 
 // void process_set_state(uint32_t pid, process_state_t new_state) {
@@ -98,30 +108,30 @@ void process_create(void (*func)(void), uint32_t pid, uint8_t priority)
 //     pcb_table[pid].state = new_state;
 // }
 
-void process_admit_jobs(void) {
-    OS_ENTER_CRITICAL();
-    while (!queue_is_empty(&job_queue)) {
-        PCB_t *p = queue_dequeue(&job_queue);
-        if (!p) break;
-        p->state = PROC_READY;
-        queue_enqueue(&ready_queue, p);
-        uart_print("Admitted process ");
-        uart_print_dec(p->pid);
-        uart_print(" -> READY\r\n");
-    }
-    OS_EXIT_CRITICAL();
-}
+// void process_admit_jobs(void) {
+//     OS_ENTER_CRITICAL();
+//     while (!queue_is_empty(&job_queue)) {
+//         PCB_t *p = queue_dequeue(&job_queue);
+//         if (!p) break;
+//         p->state = PROC_READY;
+//         queue_enqueue(&ready_queue, p);
+//         uart_print("Admitted process ");
+//         uart_print_dec(p->pid);
+//         uart_print(" -> READY\r\n");
+//     }
+//     OS_EXIT_CRITICAL();
+// }
 
 void process_schedule(void) {
     OS_ENTER_CRITICAL();
 
     // 1. Kiểm tra nếu không có process READY
-    if (queue_is_empty(&ready_queue)) {
+    if (top_ready_priority_bitmap == 0) {
     OS_EXIT_CRITICAL();
     return;}
 
     // 2. Lấy process tiếp theo từ hàng đợi READY
-    PCB_t *pnext = queue_dequeue(&ready_queue);
+    PCB_t *pnext = get_highest_priority_ready_task();
     if (!pnext) return;
 
     // 3. Xử lý task hiện tại
@@ -131,7 +141,8 @@ void process_schedule(void) {
         // Nếu nó gọi os_delay, state đã là BLOCKED -> KHÔNG enqueue lại.
         if (current_pcb->state == PROC_RUNNING) {
             current_pcb->state = PROC_READY;
-            queue_enqueue(&ready_queue, current_pcb);
+            // queue_enqueue(&ready_queue, current_pcb);
+            add_task_to_ready_queue(current_pcb);
         }
     }
 
@@ -187,11 +198,43 @@ void process_timer_tick(void) {
                 p->wake_up_tick = 0; // Reset
                 
                 // Đưa lại vào hàng đợi READY
-                queue_enqueue(&ready_queue, p);
-                
+                // queue_enqueue(&ready_queue, p);
+                add_task_to_ready_queue(p);
                 // (Optional) Debug log
                 // uart_print("Task woken up: "); uart_print_dec(p->pid); uart_print("\r\n");
             }
         }
     }
+}
+
+void add_task_to_ready_queue(PCB_t *p) {
+    // lấy độ ưu tiên
+    uint8_t prio = p->dynamic_priority;
+
+    // bảo vệ giưới hạn mảng
+    if(prio >= MAX_PRIORITY) {
+        prio = MAX_PRIORITY - 1;
+    }
+
+    // đưa task vào hàng đợi tương ứng
+    queue_enqueue(&ready_queue[prio], p);
+
+    // cập nhật bitmap
+    top_ready_priority_bitmap |= (1UL << prio);
+}
+
+PCB_t* get_highest_priority_ready_task() {
+    // tìm độ ưu tiên cao nhất từ bitmap
+    for(int prio = MAX_PRIORITY - 1; prio >= 0; prio--) {
+        if(top_ready_priority_bitmap & (1UL << prio)) {
+            // lấy task từ hàng đợi tương ứng
+            PCB_t *p = queue_dequeue(&ready_queue[prio]);
+            if(queue_is_empty(&ready_queue[prio])) {
+                // nếu hàng đợi trống, xóa bit khỏi bitmap
+                top_ready_priority_bitmap &= ~(1UL << prio);
+            }
+            return p;
+        }
+    }
+    return NULL; // không có task READY
 }

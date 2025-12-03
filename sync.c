@@ -28,7 +28,17 @@ static void wake_up_waiting_task(queue_t *wait_queue) {
     if (!queue_is_empty(wait_queue)) {
         PCB_t *t = queue_dequeue(wait_queue);
         t->state = PROC_READY;
-        queue_enqueue(&ready_queue, t);
+        
+        // SỬA: Thay queue_enqueue bằng hàm thêm vào hàng đợi ưu tiên
+        add_task_to_ready_queue(t); 
+        
+        /* TÙY CHỌN: Preemption (Ngắt quãng)
+           Nếu task vừa được đánh thức có độ ưu tiên cao hơn task đang chạy,
+           ta nên kích hoạt Scheduler ngay lập tức để nó chiếm quyền CPU.
+        */
+        if (current_pcb && t->dynamic_priority > current_pcb->dynamic_priority) {
+             *(volatile uint32_t*)0xE000ED04 |= (1UL << 28); // Trigger PendSV
+        }
     }
     OS_EXIT_CRITICAL();
 }

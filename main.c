@@ -39,8 +39,9 @@ void main(void) {
     process_create(task_sensor_update, 0, 4); // PID 0
     process_create(task_display, 1, 2);       // PID 1
     process_create(task_alarm, 2, 3);         // PID 2
+    process_create(task_logger , 3, 4);              // PID 3 (Idle task)
 
-    process_admit_jobs();
+    //process_admit_jobs();
 
     /* Khởi động nhịp tim hệ thống */
     systick_init(SYSTICK_RATE);

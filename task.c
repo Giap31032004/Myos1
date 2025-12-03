@@ -82,3 +82,23 @@ void task_alarm(void) {
         mutex_unlock(&app_mutex);
     }
 }
+
+/* ------------------------------------------------
+   TASK 4: LOGGER (Dùng để test Round-Robin)
+   Mục tiêu: Chạy song song với Sensor cùng Priority
+   ------------------------------------------------ */
+void task_logger(void) {
+    int counter = 0;
+    
+    while (1) {
+        // Delay giống hệt Sensor để 2 ông này thức dậy cùng lúc
+        // và tranh giành CPU
+        os_delay(10); 
+
+        mutex_lock(&app_mutex);
+        uart_print("    >>> [LOGGER] Checking system... Count: ");
+        uart_print_dec(counter++);
+        uart_print("\r\n");
+        mutex_unlock(&app_mutex);
+    }
+}

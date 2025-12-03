@@ -13,5 +13,6 @@ extern volatile int system_uptime;
 void task_sensor_update(void);
 void task_display(void);
 void task_alarm(void);
+void task_logger(void);
 
 #endif 
