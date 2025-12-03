@@ -3,6 +3,7 @@
 #include "process.h" 
 #include "sync.h"    
 #include "ipc.h"
+#include "uart.h"
 #include <stdint.h>
 
 /* Biến toàn cục */
@@ -100,5 +101,80 @@ void task_logger(void) {
         uart_print_dec(counter++);
         uart_print("\r\n");
         mutex_unlock(&app_mutex);
+    }
+}
+
+/* Thêm vào task.c */
+
+// Hàm so sánh chuỗi đơn giản
+int my_strcmp(const char *s1, const char *s2) {
+    while (*s1 && (*s1 == *s2)) {
+        s1++; s2++;
+    }
+    return *(const unsigned char*)s1 - *(const unsigned char*)s2;
+}
+
+/* ------------------------------------------------
+   TASK 4: SHELL (Giao diện dòng lệnh)
+   ------------------------------------------------ */
+void task_shell(void) {
+    char cmd_buffer[32];
+    int cmd_index = 0;
+
+    mutex_lock(&app_mutex);
+    uart_print("\r\n[SHELL] Ready. Type 'help' to start.\r\n");
+    uart_print("MyOS> ");
+    mutex_unlock(&app_mutex);
+
+    while (1) {
+        // Hàm này sẽ ngủ cho đến khi bạn gõ phím
+        char c = uart_getc();
+
+        // Echo lại ký tự ra màn hình (để bạn thấy mình gõ gì)
+        mutex_lock(&app_mutex);
+        uart_putc(c);
+        mutex_unlock(&app_mutex);
+
+        // Xử lý phím Enter (\r)
+        if (c == '\r') {
+            mutex_lock(&app_mutex);
+            uart_print("\n"); // Xuống dòng
+            cmd_buffer[cmd_index] = '\0'; // Kết thúc chuỗi
+
+            /* --- XỬ LÝ LỆNH --- */
+            if (my_strcmp(cmd_buffer, "help") == 0) {
+                uart_print("Available commands:\r\n");
+                uart_print("  help  : Show this help\r\n");
+                uart_print("  temp  : Show current temperature\r\n");
+                uart_print("  reboot: Restart system\r\n");
+            } 
+            else if (my_strcmp(cmd_buffer, "temp") == 0) {
+                uart_print("Current Temp: ");
+                uart_print_dec(current_temperature);
+                uart_print(" C\r\n");
+            }
+            else if (my_strcmp(cmd_buffer, "reboot") == 0) {
+                uart_print("Rebooting...\r\n");
+                // Reset bằng cách ghi vào AIRCR của SCB
+                *(volatile uint32_t*)0xE000ED0C = 0x05FA0004;
+            }
+            else if (cmd_index > 0) {
+                uart_print("Unknown command: ");
+                uart_print(cmd_buffer);
+                uart_print("\r\n");
+            }
+
+            uart_print("MyOS> ");
+            mutex_unlock(&app_mutex);
+            
+            // Reset buffer
+            cmd_index = 0;
+        } 
+        else {
+            // Lưu ký tự vào buffer
+            if (cmd_index < 31) {
+                cmd_buffer[cmd_index++] = c;
+            }
+        }
     }
 }

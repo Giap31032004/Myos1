@@ -233,6 +233,7 @@ PCB_t* get_highest_priority_ready_task() {
                 // nếu hàng đợi trống, xóa bit khỏi bitmap
                 top_ready_priority_bitmap &= ~(1UL << prio);
             }
+            uart_print("Selected process use priority ");
             return p;
         }
     }

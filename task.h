@@ -14,5 +14,6 @@ void task_sensor_update(void);
 void task_display(void);
 void task_alarm(void);
 void task_logger(void);
+void task_shell(void);
 
 #endif 

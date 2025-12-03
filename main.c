@@ -9,7 +9,7 @@
 
 /* --- CẤU HÌNH HỆ THỐNG --- */
 #define SYSTEM_CLOCK      80000000
-#define SYSTICK_RATE      2000000   // 10 tick/giây (đảo task nhanh hơn để thấy phản ứng)
+#define SYSTICK_RATE      8000000   // 10 tick/giây (đảo task nhanh hơn để thấy phản ứng)
 
 os_msg_queue_t temp_queue; // Hàng đợi tin nhắn cho nhiệt độ
 os_mutex_t app_mutex; // chiếc khóa chung cho cả hệ thống
@@ -40,7 +40,7 @@ void main(void) {
     process_create(task_display, 1, 2);       // PID 1
     process_create(task_alarm, 2, 3);         // PID 2
     process_create(task_logger , 3, 4);              // PID 3 (Idle task)
-
+    process_create(task_shell, 4, 1);
     //process_admit_jobs();
 
     /* Khởi động nhịp tim hệ thống */

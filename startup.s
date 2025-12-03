@@ -40,8 +40,15 @@ vector_table:
     .word 0                  /* Reserved */
     .word PendSV_Handler     /* PendSV */
     .word SysTick_Handler    /* SysTick */
+
+    .word Default_Handler /* IRQ0 : GPIO port A */
+    .word Default_Handler /* IRQ1 : GPIO port B */
+    .word Default_Handler /* IRQ2 : GPIO port C */
+    .word Default_Handler /* IRQ3 : GPIO port D */
+    .word Default_Handler /* IRQ4 : GPIO port E */
+    .word UART0_Handler /* IRQ5 : UART0 */
     
-    .rept 32
+    .rept 26
         .word Default_Handler
     .endr
 
