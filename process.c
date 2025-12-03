@@ -1,6 +1,7 @@
 #include "process.h"
 #include "uart.h"
 #include "queue.h"
+#include "memory.h"
 #include <stdint.h>
 
 #define SCB_ICSR (*(volatile uint32_t*)0xE000ED04)
@@ -19,7 +20,7 @@ queue_t job_queue;
 queue_t ready_queue[MAX_PRIORITY];
 queue_t device_queue;
 
-static uint32_t stacks[MAX_PROCESSES][STACK_SIZE];
+// static uint32_t stacks[MAX_PROCESSES][STACK_SIZE];
 static PCB_t pcb_table[MAX_PROCESSES];
 
 static int total_processes = 0; 
@@ -51,6 +52,8 @@ void process_init(void) {
     total_processes = 0;
     current_pcb = NULL;
     next_pcb = NULL;
+
+    process_create(prvIdleTask, 0, 0);
 }
 
 void process_create(void (*func)(void), uint32_t pid, uint8_t priority) 
@@ -252,3 +255,10 @@ PCB_t* get_highest_priority_ready_task() {
     }
     return NULL; // không có task READY
 }
+
+void prvIdleTask(void){
+    while(1){
+        __asm("wfi"); // Chờ ngắt để tiết kiệm điện
+    }
+}
+

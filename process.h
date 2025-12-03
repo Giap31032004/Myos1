@@ -63,5 +63,5 @@ void os_delay(uint32_t tick);
 void process_timer_tick(void);
 void add_task_to_ready_queue(PCB_t *p);
 PCB_t* get_highest_priority_ready_task(void);
-
+void prvIdleTask(void);
 #endif
