@@ -12,4 +12,8 @@ typedef enum {
 /* Ví dụ: 1 UART, 1 I2C, 2 DMA Channels */
 extern int system_available[NUM_RESOURCES];
 
+void banker_init(void);
+int request_resources(int request[]);
+void release_resources(int release[]);
+
 #endif 

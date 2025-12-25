@@ -4,6 +4,7 @@
 #include "sync.h"    
 #include "ipc.h"
 #include "uart.h"
+#include "banker.h"
 #include <stdint.h>
 
 /* Biến toàn cục */
@@ -208,5 +209,58 @@ void task_deadlock_2(){
         uart_print("Task 2: Got both!\r\n");
         mutex_unlock(&mutex_A);
         mutex_unlock(&mutex_B);
+    }
+}
+
+void task_banker1(void){
+    int req[] = {0, 0, 1}; // xin 0 uart, 0 i2c, 1 DMA
+    while(1){
+        uart_print(" T1 : Asking for 1 DMA ...\r\n");
+
+        if(request_resources(req)){
+            uart_print("T1 : granted 1 DMA ! Holding it .... \r\n");
+
+            // T1 giữ tài nguyên và làm việc rất lâu
+            // -> tài nguyên đang bị giam lỏng
+
+            os_delay(100);
+
+            uart_print("T1 : Releasing DMA. \r\n");
+            release_resources(req);
+
+        }
+        else{
+            uart_print("T1 releasing DMA. \r\n");
+
+        }
+
+        os_delay(20);
+    }
+}
+
+/* TASK TEST 2: Người đến muộn gây nguy hiểm */
+void task_banker2(void) {
+    int req[] = {0, 0, 1}; // Cũng xin 1 DMA
+    
+    while(1) {
+        // Đợi T1 chạy trước một chút để tạo tình huống tranh chấp
+        os_delay(10); 
+        
+        uart_print("T2: Asking for 1 DMA...\r\n");
+        
+        /* Theo kịch bản: T1 đã giữ 1 DMA. Hệ thống còn 1.
+           Nhưng T2 cần Max là 2.
+           Nếu cấp nốt 1 DMA còn lại cho T2 -> Hệ thống còn 0.
+           -> UNSAFE STATE (Cả T1 và T2 đều có thể đòi thêm 1 nữa và kẹt cứng).
+           -> Banker sẽ TỪ CHỐI T2.
+        */
+        if (request_resources(req)) {
+            uart_print("T2: GRANTED! (Strange?)\r\n");
+            release_resources(req);
+        } else {
+            uart_print("T2: DENIED by Banker (Unsafe State)!\r\n");
+        }
+        
+        os_delay(100);
     }
 }

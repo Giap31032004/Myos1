@@ -52,9 +52,12 @@ typedef struct PCB {
                                 // Dùng uint32_t để không bị tràn sớm
     uint8_t id_cpu;           // CPU chạy task này (dành cho hệ thống đa lõi)
     
-    int res_hold[NUM_RESOURCES];
+    int res_held[NUM_RESOURCES];
     int res_max[NUM_RESOURCES];
 } PCB_t;
+
+extern PCB_t pcb_table[MAX_PROCESSES];
+
 
 void process_init(void);
 void process_create(void (*func)(void), uint32_t pid, uint8_t priority, int *max_res);

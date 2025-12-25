@@ -21,7 +21,7 @@ queue_t ready_queue[MAX_PRIORITY];
 queue_t device_queue;
 
 // static uint32_t stacks[MAX_PROCESSES][STACK_SIZE];
-static PCB_t pcb_table[MAX_PROCESSES];
+PCB_t pcb_table[MAX_PROCESSES];
 
 static int total_processes = 0; 
 
@@ -61,7 +61,7 @@ void process_create(void (*func)(void), uint32_t pid, uint8_t priority, int *max
 
     /* 1. Khởi tạo tài nguyên Banker */
     for (int i = 0; i < NUM_RESOURCES; i++) {
-        p->res_hold[i] = 0; 
+        p->res_held[i] = 0; 
         if (max_res != NULL) {
             p->res_max[i] = max_res[i];
         } else {

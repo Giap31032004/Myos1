@@ -17,4 +17,7 @@ void task_logger(void);
 void task_shell(void);
 void task_deadlock_1(void);
 void task_deadlock_2(void);
+void task_banker1(void);
+void task_banker2(void);
+
 #endif 

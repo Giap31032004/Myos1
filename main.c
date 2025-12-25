@@ -28,12 +28,15 @@ void delay(volatile unsigned int count) {
 /* --- MAIN --- */
 void main(void) {
     uart_init();
+    banker_init();
     process_init();
 
     msg_queue_init(&temp_queue);
     mutex_init(&app_mutex);
     mutex_init(&mutex_A);
     mutex_init(&mutex_B);
+    int max_res_t1[] = {0, 0, 2}; 
+    int max_res_t2[] = {0, 0, 2};
     
     uart_print("\033[2J"); // Lệnh xóa màn hình terminal (nếu hỗ trợ)
     uart_print("MyOS IoT System Booting...\r\n");
@@ -47,6 +50,8 @@ void main(void) {
     process_create(task_shell, 5, 1, NULL);
     process_create(task_deadlock_1,6, 5, NULL);
     process_create(task_deadlock_2,7, 5, NULL);
+    process_create(task_banker1, 8, 4, max_res_t1);
+    process_create(task_banker2, 9, 4, max_res_t2);
     //process_admit_jobs();
 
     /* Khởi động nhịp tim hệ thống */
