@@ -2,6 +2,7 @@
 #define PROCESS_H
 #include <stdint.h>
 #include "queue.h"
+#include "banker.h"
 
 #define MAX_PROCESSES 10 // Số lượng tiến trình tối đa
 #define MAX_PRIORITY 8 // số hàng đợi tối đa
@@ -51,10 +52,12 @@ typedef struct PCB {
                                 // Dùng uint32_t để không bị tràn sớm
     uint8_t id_cpu;           // CPU chạy task này (dành cho hệ thống đa lõi)
     
+    int res_hold[NUM_RESOURCES];
+    int res_max[NUM_RESOURCES];
 } PCB_t;
 
 void process_init(void);
-void process_create(void (*func)(void), uint32_t pid, uint8_t priority);
+void process_create(void (*func)(void), uint32_t pid, uint8_t priority, int *max_res);
 void process_admit_jobs(void);
 void process_schedule(void);
 void process_set_state(uint32_t pid, process_state_t new_state);

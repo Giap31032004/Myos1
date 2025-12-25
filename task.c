@@ -11,6 +11,8 @@ volatile int current_temperature = 25;
 volatile int system_uptime = 0;
 extern os_mutex_t app_mutex;
 extern os_msg_queue_t temp_queue;
+extern os_mutex_t mutex_A;
+extern os_mutex_t mutex_B;
 
 /* TASK 1: SENSOR */
 void task_sensor_update(void) {
@@ -176,5 +178,35 @@ void task_shell(void) {
                 cmd_buffer[cmd_index++] = c;
             }
         }
+    }
+}
+
+void task_deadlock_1(){
+    while(1){
+        // lấy khóa A
+        mutex_lock(&mutex_A);
+        uart_print("Task 1: Got A. Waitting for B ... \r\n");
+
+        os_delay(10); // ngủ để các task khác chạy
+        // cố lấy khóa B
+        mutex_lock(&mutex_B);
+        uart_print("Task 1: Got both!\r\n");
+        mutex_unlock(&mutex_B);
+        mutex_unlock(&mutex_A);
+    }
+}
+
+void task_deadlock_2(){
+    while(1){
+        // lấy khóa B
+        mutex_lock(&mutex_B);
+        uart_print("Task 2: Got B. Waitting for A ... \r\n");
+
+        os_delay(10); // ngủ để các task khác chạy
+        // cố lấy khóa A
+        mutex_lock(&mutex_A);
+        uart_print("Task 2: Got both!\r\n");
+        mutex_unlock(&mutex_A);
+        mutex_unlock(&mutex_B);
     }
 }

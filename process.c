@@ -45,39 +45,50 @@ void process_init(void) {
     }
     
     top_ready_priority_bitmap = 0;
-    // queue_init(&job_queue);
-    // queue_init(&ready_queue);
-    // queue_init(&device_queue);
 
     total_processes = 0;
     current_pcb = NULL;
     next_pcb = NULL;
 
-    process_create(prvIdleTask, 0, 0);
+    process_create(prvIdleTask, 0, 0, NULL);
 }
 
-void process_create(void (*func)(void), uint32_t pid, uint8_t priority) 
+void process_create(void (*func)(void), uint32_t pid, uint8_t priority, int *max_res) 
 {
     if (pid >= MAX_PROCESSES) return;
 
     PCB_t *p = &pcb_table[pid];
-    p->pid = pid;
-    p->entry = func;
-    p->state = PROC_READY;
 
-    //uint32_t *sp = &stacks[pid][STACK_SIZE];
-    uint32_t *stack_base = (uint32_t*)os_malloc(STACK_SIZE * 4);
+    /* 1. Khởi tạo tài nguyên Banker */
+    for (int i = 0; i < NUM_RESOURCES; i++) {
+        p->res_hold[i] = 0; 
+        if (max_res != NULL) {
+            p->res_max[i] = max_res[i];
+        } else {
+            p->res_max[i] = 0;
+        }
+    }
+
+    /* 2. Cấp phát Stack */
+    // Lưu ý: os_malloc trả về byte, ta ép kiểu sang uint32_t*
+    uint32_t *stack_base = (uint32_t*)os_malloc(STACK_SIZE * 4); 
+    
     if(stack_base == NULL) {
-        uart_print("Error: Unable to allocate stack for process ");
+        uart_print("Error: Heap Full for PID ");
         uart_print_dec(pid);
         uart_print("\r\n");
         return;
     }
-    uint32_t *sp = stack_base + STACK_SIZE;
 
-    *(--sp) = 0x01000000UL;        /* xPSR: Thumb bit set */
-    *(--sp) = (uint32_t)func;      /* PC -> entry function */
-    *(--sp) = 0xFFFFFFFDUL;        /* LR -> EXC_RETURN (return to Thread mode, use PSP) */
+    /* --- ĐÂY LÀ DÒNG BẠN BỊ THIẾU --- */
+    // Tính toán đỉnh stack (Stack mọc từ địa chỉ cao xuống thấp)
+    uint32_t *sp = stack_base + STACK_SIZE; 
+    /* -------------------------------- */
+
+    /* 3. Tạo Stack Frame giả lập (Fake Context) */
+    *(--sp) = 0x01000000UL;        /* xPSR */
+    *(--sp) = (uint32_t)func;      /* PC */
+    *(--sp) = 0xFFFFFFFDUL;        /* LR */
     *(--sp) = 0;                   /* R12 */
     *(--sp) = 0;                   /* R3 */
     *(--sp) = 0;                   /* R2 */
@@ -85,21 +96,22 @@ void process_create(void (*func)(void), uint32_t pid, uint8_t priority)
     *(--sp) = 0;                   /* R0 */
 
     for (int i = 0; i < 8; ++i) {
-        *(--sp) = 0; /* R11 .. R4 placeholders */
+        *(--sp) = 0; /* R11 .. R4 */
     }
 
-    p->stack_ptr = sp;
-
-    p->state = PROC_NEW;
-
+    /* 4. Lưu thông tin vào PCB */
+    p->stack_ptr = sp;         // Lưu đỉnh stack mới
+    p->pid = pid;
+    p->entry = func;
+    p->state = PROC_NEW; 
     p->dynamic_priority = priority;
     p->static_priority = priority;
     p->time_slice = 5;
     p->total_cpu_runtime = 0;
     p->wake_up_tick = 0;
 
+    /* 5. Đưa vào hàng đợi */
     OS_ENTER_CRITICAL();
-    // queue_enqueue(&job_queue, p);
     add_task_to_ready_queue(p); 
     OS_EXIT_CRITICAL();
 
@@ -110,29 +122,13 @@ void process_create(void (*func)(void), uint32_t pid, uint8_t priority)
     uart_print("\r\n");
 
     total_processes++;
+    
+    // Nếu task mới có quyền cao hơn task hiện tại -> Preempt (chiếm quyền) ngay
     if(current_pcb && p->dynamic_priority > current_pcb->dynamic_priority) {
         SCB_ICSR |= PENDSVSET_BIT;
     }
 }
 
-// void process_set_state(uint32_t pid, process_state_t new_state) {
-//     if (pid >= (uint32_t)MAX_PROCESSES) return;
-//     pcb_table[pid].state = new_state;
-// }
-
-// void process_admit_jobs(void) {
-//     OS_ENTER_CRITICAL();
-//     while (!queue_is_empty(&job_queue)) {
-//         PCB_t *p = queue_dequeue(&job_queue);
-//         if (!p) break;
-//         p->state = PROC_READY;
-//         queue_enqueue(&ready_queue, p);
-//         uart_print("Admitted process ");
-//         uart_print_dec(p->pid);
-//         uart_print(" -> READY\r\n");
-//     }
-//     OS_EXIT_CRITICAL();
-// }
 
 void process_schedule(void) {
     OS_ENTER_CRITICAL();

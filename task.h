@@ -15,5 +15,6 @@ void task_display(void);
 void task_alarm(void);
 void task_logger(void);
 void task_shell(void);
-
+void task_deadlock_1(void);
+void task_deadlock_2(void);
 #endif 

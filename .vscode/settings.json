@@ -3,5 +3,6 @@
         "systick.h": "c",
         "uart.h": "c",
         "stdint.h": "c"
-    }
+    },
+    "C_Cpp.dimInactiveRegions": false
 }

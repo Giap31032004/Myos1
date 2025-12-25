@@ -1,27 +1,28 @@
 #include "uart.h"
 #include "sync.h"
 
-#define UART0_BASE  0x4000C000
-#define UART0_DR (*(volatile unsigned int*)(UART0_BASE + 0x00))
-#define UART0_FR (*(volatile uint32_t*)(UART0_BASE + 0x018))
-#define UART0_IM (*(volatile uint32_t*)(UART0_BASE + 0x038))
-#define UART0_ICR (*(volatile uint32_t*)(UART0_BASE + 0x044))
+// địa chỉ vật lý của các thanh ghi 
+#define UART0_BASE  0x4000C000 // địa chỉ vật lý của uart0
+#define UART0_DR (*(volatile unsigned int*)(UART0_BASE + 0x00)) // ghi vào thanh ghi này để gửi đi, đọc từ đây để nhận về dữ liệu
+#define UART0_FR (*(volatile uint32_t*)(UART0_BASE + 0x018)) // bảng thông báo chứa các cờ trạng thái(FIFO đang đầy / trống, uart đang bận hay không)
+#define UART0_IM (*(volatile uint32_t*)(UART0_BASE + 0x038)) // công tắc để cho phép chặn các ngắt UART , nếu bit = 1 -> cho phép ngắt
+#define UART0_ICR (*(volatile uint32_t*)(UART0_BASE + 0x044)) // ghi 1 để xóa cờ ngắt
 
-#define NVIC_EN0 (*(volatile uint32_t*)0xE000E100) 
+#define NVIC_EN0 (*(volatile uint32_t*)0xE000E100) // bật ngắt cho ngoại vi, thanh ghi enable interrupt của NVIC (arm cortex - M)
 
-#define UART_RXFE      (1 << 4) 
-#define UART_TXFF      (1 << 5)
-#define UART_RXIM      (1 << 4) 
+#define UART_RXFE      (1 << 4) // FIFO Empty -> ko có dữ liệu đọc
+#define UART_TXFF      (1 << 5) // FIFO full -> ko thể ghi thêm dữ liệu
+#define UART_RXIM      (1 << 4)  // cho phép ngắt khi có dữ liệu cho RX
 
-#define RX_BUFFER_SIZE 128
-static char rx_bufferr[RX_BUFFER_SIZE];
-static int rx_head = 0;
-static int rx_tail = 0;
+#define RX_BUFFER_SIZE 128 // buffer vòng
+static char rx_bufferr[RX_BUFFER_SIZE]; 
+static int rx_head = 0; //  vị trí ghi
+static int rx_tail = 0; // vị trí đọc
 
-os_sem_t uart_rx_semaphore;
+os_sem_t uart_rx_semaphore; 
 
 void uart_init(void) {
-    sem_init(&uart_rx_semaphore, 0);
+    sem_init(&uart_rx_semaphore, 0); // giá trị ban đầu là 0 , chưa có dữ liệu uart
     UART0_IM |= UART_RXIM;
     NVIC_EN0 |= (1 << 5); 
 }

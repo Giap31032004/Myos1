@@ -1,10 +1,12 @@
-.syntax unified // Unified Assembler Language
-.cpu cortex-m3 // tên chip là cortex m3
-.thumb //// dùng tập lệnh thumb 2
+.syntax unified // GNU(trình biên dịch assembly) bật UAL(cú pháp thống nhất do arm đưa ra)
+.cpu cortex-m3 // tên chip là cortex m3 -> cho biết đúng kiến trúc cpu để kiểm tra tập lệnh, encoding và tối ưu mã máy
+.thumb //  sử dụng tập lệnh thumb (16 bit) 
 
 /* ========================================
    PHẦN 1: KHAI BÁO GLOBAL & EXTERN
    ======================================== */
+   // global là được dùng ở file khác có thể truy cập được, được linker sử dụng để liên kết các tệp khác nhau lại với nhau
+   // nếu không khai báo global thì linker không tùn thấy thì vector table không được đưa vào đúng địa chỉ
 .global vector_table // Định nghĩa vector_table là một biểu tượng toàn cục
 .global Reset_Handler // Định nghĩa Reset_Handler là một biểu tượng toàn cục
 
@@ -15,20 +17,20 @@
 .extern _sbss     /* Đầu vùng BSS */
 .extern _ebss     /* Cuối vùng BSS */
 
-.extern main 
+.extern main  // nói với assembly rằng hàm main() được định nghĩa ở C, rết handler sẽ gọi bl main
 .extern PendSV_Handler
 .extern SysTick_Handler
-.extern start_first_task
+.extern start_first_task // hàm khởi tạo task đầu tiên trong hệ điều hành thời gian thực
 
 /* ========================================
    PHẦN 2: VECTOR TABLE
    ======================================== */
-.section .isr_vector, "a", %progbits
-.type vector_table, %object
+.section .isr_vector, "a", %progbits // đưa phần mã tiếp theo vào section tên .isr_vector, với thuộc tính "a" (allocatable -> section này sẽ được đưa vào falsh bởi linker) và loại %progbits (dữ liệu chương trình)
+.type vector_table, %object // định nghĩa vector_table là một đối tượng (object)
 
 vector_table:
-    .word _estack
-    .word Reset_Handler
+    .word _estack // entry0: giá trị này dùng để nạp vào main stack pointer cpu đọc entry này ngay sau reset
+    .word Reset_Handler  // entry1: địa chỉ của hàm reset handler CPU nhảy tới đây sau khi thiết lập MSP
     .word Default_Handler    /* NMI */
     .word Default_Handler    /* HardFault */
     .word Default_Handler    /* MemManage */
@@ -38,8 +40,8 @@ vector_table:
     .word Default_Handler    /* SVC */
     .word Default_Handler    /* DebugMon */
     .word 0                  /* Reserved */
-    .word PendSV_Handler     /* PendSV */
-    .word SysTick_Handler    /* SysTick */
+    .word PendSV_Handler     /* PendSV */ // dùng cho context switch
+    .word SysTick_Handler    /* SysTick */ //timer tick của cortex - M3
 
     .word Default_Handler /* IRQ0 : GPIO port A */
     .word Default_Handler /* IRQ1 : GPIO port B */
@@ -48,12 +50,12 @@ vector_table:
     .word Default_Handler /* IRQ4 : GPIO port E */
     .word UART0_Handler /* IRQ5 : UART0 */
     
-    .rept 26
+    .rept 43 // lặp lại 43 lần
         .word Default_Handler
     .endr
 
 /* ========================================
-   PHẦN 3: RESET HANDLER (Đã thêm đoạn Copy Data)
+   PHẦN 3: RESET HANDLER : copy data từ flash sang ram , xóa vùng bss và gọi main
    ======================================== */
 .section .text.Reset_Handler
 .weak Reset_Handler
@@ -99,6 +101,6 @@ loop_zero_bss:
 .section .text.Default_Handler
 .weak Default_Handler
 .type Default_Handler, %function
-Default_Handler:
+Default_Handler: // phần interrupt chưa được đinh nghĩa
     b .
     
