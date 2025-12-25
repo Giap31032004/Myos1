@@ -51,9 +51,15 @@ typedef struct PCB {
     uint32_t total_cpu_runtime; // Tổng số tick task này đã chiếm dụng từ lúc khởi động
                                 // Dùng uint32_t để không bị tràn sớm
     uint8_t id_cpu;           // CPU chạy task này (dành cho hệ thống đa lõi)
-    
-    int res_held[NUM_RESOURCES];
-    int res_max[NUM_RESOURCES];
+
+    /* --- PHẦN QUẢN LÝ TÀI NGUYÊN (RESOURCE MANAGEMENT) --- */
+    int res_held[NUM_RESOURCES]; // Số lượng tài nguyên đang giữ
+    int res_max[NUM_RESOURCES]; // Số lượng tài nguyên tối đa có thể yêu cầu
+
+    uint32_t heap_base;    // Địa chỉ cơ sở của heap
+    uint32_t heap_size;    // Kích thước của heap
+    uint32_t stack_base;   // Địa chỉ cơ sở của stack
+    uint32_t stack_size;   // Kích thước của stack
 } PCB_t;
 
 extern PCB_t pcb_table[MAX_PROCESSES];

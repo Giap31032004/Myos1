@@ -2,13 +2,10 @@
 .cpu cortex-m3
 .thumb
 
-/* ========================================
-   KHAI BÁO GLOBAL & EXTERN
-   ======================================== */
 .global PendSV_Handler
 .global start_first_task
 
-/* Các biến toàn cục quản lý Task (từ C code) */
+/* External variables from C */
 .extern current_pcb
 .extern next_pcb
 
@@ -16,70 +13,66 @@
 
 /* ========================================
    HÀM: PendSV_Handler
-   Mục đích: Context Switching thực tế
+   Mô tả: Thực hiện lưu và khôi phục ngữ cảnh (Context Switch)
    ======================================== */
 .type PendSV_Handler, %function
 PendSV_Handler:
-    /* --- BƯỚC 1: LƯU CONTEXT CŨ --- */
-    MRS     r0, psp                 /* r0 = Lấy Process Stack Pointer hiện tại */
-    CBZ     r0, load_next_task      /* Nếu PSP = 0 (lần đầu chạy), bỏ qua lưu */
+    /* 1. Lấy PSP hiện tại */
+    MRS     r0, psp
+    CBZ     r0, load_next_task      /* Nếu PSP=0 (chưa chạy task nào), nhảy đến load luôn */
 
-    LDR     r1, =current_pcb        /* r1 = Địa chỉ của biến con trỏ current_pcb */
-    LDR     r1, [r1]                /* r1 = Giá trị của current_pcb (địa chỉ struct) */
-    CBZ     r1, load_next_task      /* Phòng hờ null pointer */
+    /* 2. Lưu Context cũ (R4-R11) */
+    LDR     r1, =current_pcb
+    LDR     r1, [r1]
+    CBZ     r1, load_next_task      /* Safety check: Nếu current_pcb NULL, bỏ qua lưu */
 
-    /* Lưu các thanh ghi còn lại (R4-R11) vào stack của task đó */
-    STMDB   r0!, {r4-r11}           
-    
-    /* Cập nhật lại đỉnh stack mới vào struct PCB */
-    STR     r0, [r1]                /* current_pcb->stack_ptr = r0 mới */
+    STMDB   r0!, {r4-r11}           /* Push R4-R11 vào stack */
+    STR     r0, [r1]                /* Lưu SP mới vào current_pcb->stack_ptr */
 
 load_next_task:
-    /* --- BƯỚC 2: NẠP CONTEXT MỚI --- */
-    LDR     r1, =next_pcb           /* r1 = Địa chỉ của biến next_pcb */
-    LDR     r1, [r1]                /* r1 = Giá trị next_pcb */
-    CBZ     r1, pend_exit           /* Nếu không có task tiếp theo, thoát */
+    /* 3. Lấy Task tiếp theo */
+    LDR     r1, =next_pcb
+    LDR     r1, [r1]
+    CBZ     r1, pend_exit           /* Safety check: Nếu next_pcb NULL, thoát */
 
-    /* Lấy đỉnh stack từ struct PCB của task mới */
     LDR     r0, [r1]                /* r0 = next_pcb->stack_ptr */
-
-    /* Cập nhật current_pcb = next_pcb */
+    
+    /* 4. Cập nhật current_pcb = next_pcb */
     LDR     r2, =current_pcb
     STR     r1, [r2]
 
-    /* Khôi phục các thanh ghi (R4-R11) từ stack của task mới */
-    LDMIA   r0!, {r4-r11}
-
-    /* Cập nhật thanh ghi PSP của CPU */
-    MSR     psp, r0
+    /* 5. Khôi phục Context mới (R4-R11) */
+    LDMIA   r0!, {r4-r11}           /* Pop R4-R11 từ stack */
+    MSR     psp, r0                 /* Cập nhật thanh ghi PSP */
+    
+    /* 6. Barriers (Quan trọng) */
+    DSB                             /* Data Synchronization Barrier */
+    ISB                             /* Instruction Synchronization Barrier */
 
 pend_exit:
-    /* --- BƯỚC 3: THOÁT NGẮT --- */
-    /* EXC_RETURN: 0xFFFFFFFD => Return to Thread Mode, dùng PSP */
-    ORR     lr, lr, #0x04           
-    BX      lr                      
+    /* 7. Thoát ngắt */
+    ORR     lr, lr, #0x04           /* Đảm bảo Bit 2 = 1 (Return to Thread Mode, use PSP) */
+    BX      lr
 
 /* ========================================
    HÀM: start_first_task
-   Mục đích: Chạy task đầu tiên (bootstrapping)
-   Input: r0 = Initial Stack Pointer của task đầu tiên
+   Mô tả: Khởi động task đầu tiên.
+   Input: r0 = Stack Pointer ban đầu của task (đang trỏ vào đáy Fake Context)
    ======================================== */
 .type start_first_task, %function
 start_first_task:
-    /* Thiết lập PSP ban đầu */
-    MSR     psp, r0
+    /* TỐI ƯU HÓA: Thay vì LDMIA để pop rác, ta cộng thẳng địa chỉ */
+    /* Stack Frame giả lập có R4-R11 (8 thanh ghi * 4 byte = 32 bytes) nằm đầu */
+    
+    ADD     r0, r0, #32             /* Nhảy qua vùng R4-R11 giả, trỏ đến R0 */
+    MSR     psp, r0                 /* Cài đặt PSP */
 
-    /* Giả lập việc restore context (pop R4-R11 rác ra khỏi stack để cân bằng) */
-    MRS     r0, psp
-    LDMIA   r0!, {r4-r11}
-    MSR     psp, r0
-
-    /* Chuyển sang dùng PSP và chế độ Unprivileged (hoặc Privileged tùy bit 0) */
-    MOVS    r0, #2                  /* Bit 1 = 1 (PSP), Bit 0 = 0 (Privileged) */
+    /* Cấu hình CONTROL Register */
+    MOVS    r0, #2                  /* Bit 1=1 (Switch to PSP), Bit 0=0 (Privileged) */
     MSR     CONTROL, r0
-    ISB                             /* Instruction Synchronization Barrier */
+    
+    ISB                             /* Flush pipeline để áp dụng stack mới ngay lập tức */
 
     /* Nhảy vào Task */
-    LDR     lr, =0xFFFFFFFD         
+    LDR     lr, =0xFFFFFFFD         /* EXC_RETURN: Thread Mode, PSP */
     BX      lr
-    

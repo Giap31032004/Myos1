@@ -3,6 +3,7 @@
 #include "queue.h"
 #include "memory.h"
 #include <stdint.h>
+#include "mpu.h"
 
 #define SCB_ICSR (*(volatile uint32_t*)0xE000ED04)
 #define PENDSVSET_BIT (1UL << 28)
@@ -58,6 +59,13 @@ void process_create(void (*func)(void), uint32_t pid, uint8_t priority, int *max
     if (pid >= MAX_PROCESSES) return;
 
     PCB_t *p = &pcb_table[pid];
+    uint32_t stack_size_bytes = STACK_SIZE * 4;
+    uint32_t *stack_base = (uint32_t*)os_malloc(stack_size_bytes);
+
+    p->stack_base = (uint32_t)stack_base;
+    p->stack_size = stack_size_bytes;
+    p->heap_base = 0; 
+    p->heap_size = 0;
 
     /* 1. Khởi tạo tài nguyên Banker */
     for (int i = 0; i < NUM_RESOURCES; i++) {
@@ -71,7 +79,7 @@ void process_create(void (*func)(void), uint32_t pid, uint8_t priority, int *max
 
     /* 2. Cấp phát Stack */
     // Lưu ý: os_malloc trả về byte, ta ép kiểu sang uint32_t*
-    uint32_t *stack_base = (uint32_t*)os_malloc(STACK_SIZE * 4); 
+    //uint32_t *stack_base = (uint32_t*)os_malloc(STACK_SIZE * 4); 
     
     if(stack_base == NULL) {
         uart_print("Error: Heap Full for PID ");
@@ -155,6 +163,7 @@ void process_schedule(void) {
     }
 
     pnext->state = PROC_RUNNING;
+    mpu_config_for_task(pnext);
     OS_EXIT_CRITICAL();
 
     uart_print("Switching to process ");

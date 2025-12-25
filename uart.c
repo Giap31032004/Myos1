@@ -82,3 +82,32 @@ char uart_getc(void) {
 
     return c;
 }
+
+// Hàm phụ trợ để chuyển số 0-15 thành ký tự '0'-'F'
+static char nibble_to_hex(uint8_t nibble) {
+    if (nibble < 10) return '0' + nibble;
+    return 'A' + (nibble - 10);
+}
+
+void uart_print_hex(uint8_t n) {
+    char str[3];
+    str[0] = nibble_to_hex((n >> 4) & 0x0F); // 4 bit cao
+    str[1] = nibble_to_hex(n & 0x0F);        // 4 bit thấp
+    str[2] = '\0'; // Kết thúc chuỗi
+    uart_print(str);
+}
+
+void uart_print_hex32(uint32_t n) {
+    char str[11];
+    str[0] = '0';
+    str[1] = 'x';
+    
+    // In từ byte cao nhất (MSB) xuống thấp nhất
+    for (int i = 0; i < 8; i++) {
+        // Dịch để lấy từng cụm 4 bit (nibble), bắt đầu từ bit 28
+        uint8_t nibble = (n >> (28 - (i * 4))) & 0x0F;
+        str[2 + i] = nibble_to_hex(nibble);
+    }
+    str[10] = '\0';
+    uart_print(str);
+}
