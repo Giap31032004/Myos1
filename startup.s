@@ -1,21 +1,21 @@
-.syntax unified
-.cpu cortex-m3
-.thumb
+.syntax unified // Unified Assembler Language
+.cpu cortex-m3 // tên chip là cortex m3
+.thumb //// dùng tập lệnh thumb 2
 
 /* ========================================
    PHẦN 1: KHAI BÁO GLOBAL & EXTERN
    ======================================== */
-.global vector_table
-.global Reset_Handler
+.global vector_table // Định nghĩa vector_table là một biểu tượng toàn cục
+.global Reset_Handler // Định nghĩa Reset_Handler là một biểu tượng toàn cục
 
-.extern _estack
+.extern _estack // đỉnh của stack - thường là cuối RAM
 .extern _sidata   /* Đầu dữ liệu trong Flash */
 .extern _sdata    /* Đầu dữ liệu trong RAM */
 .extern _edata    /* Cuối dữ liệu trong RAM */
 .extern _sbss     /* Đầu vùng BSS */
 .extern _ebss     /* Cuối vùng BSS */
 
-.extern main
+.extern main 
 .extern PendSV_Handler
 .extern SysTick_Handler
 .extern start_first_task

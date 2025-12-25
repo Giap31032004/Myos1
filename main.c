@@ -7,9 +7,8 @@
 #include <stdint.h>
 
 
-/* --- CẤU HÌNH HỆ THỐNG --- */
 #define SYSTEM_CLOCK      80000000
-#define SYSTICK_RATE      8000000   // 10 tick/giây (đảo task nhanh hơn để thấy phản ứng)
+#define SYSTICK_RATE      8000000  
 
 os_msg_queue_t temp_queue; // Hàng đợi tin nhắn cho nhiệt độ
 os_mutex_t app_mutex; // chiếc khóa chung cho cả hệ thống
